@@ -1,71 +1,54 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
-import { prisma } from '@/lib/prisma';
-import { createStripeCustomer, createCheckoutSession } from '@/lib/stripe';
+// app/api/billing/stripe/checkout/route.ts
+// javari-dashboard — Stripe checkout (Supabase)
+// Friday, March 13, 2026
+
+import { NextRequest, NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/rbac'
+import { createServiceClient } from '@/lib/supabase/server'
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId, userId } = await requirePermission('billing:manage');
-    const body = await req.json();
-    const { priceId, mode } = body;
+    const { userId, userEmail } = await requirePermission('billing:manage')
+    const { priceId, mode } = await req.json()
 
     if (!priceId || !mode) {
-      return NextResponse.json(
-        { error: 'priceId and mode are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'priceId and mode are required' }, { status: 400 })
     }
 
-    const org = await prisma.organization.findUnique({
-      where: { id: orgId },
-    });
+    const supabase = createServiceClient()
 
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
-    }
+    // Get or create Stripe customer
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', userId)
+      .single()
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    let subscription = await prisma.subscription.findFirst({
-      where: { orgId },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    let customerId = subscription?.externalCustomerId;
-
-    if (!customerId && user?.email) {
-      const customer = await createStripeCustomer(user.email, user.name || undefined);
-      customerId = customer.id;
-    }
-
+    let customerId = profile?.stripe_customer_id
     if (!customerId) {
-      return NextResponse.json(
-        { error: 'Could not create Stripe customer' },
-        { status: 500 }
-      );
+      const customer = await stripe.customers.create({ email: userEmail, metadata: { userId } })
+      customerId = customer.id
+      await supabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId)
     }
 
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.APP_BASE_URL || 'http://localhost:3000';
-    const session = await createCheckoutSession({
-      customerId,
-      priceId,
-      mode: mode as 'subscription' | 'payment',
-      successUrl: `${baseUrl}/billing?success=true`,
-      cancelUrl: `${baseUrl}/billing?canceled=true`,
-      metadata: {
-        orgId,
-        userId,
-      },
-    });
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://dashboard.craudiovizai.com'
+    const session = await stripe.checkout.sessions.create({
+      customer:    customerId,
+      line_items:  [{ price: priceId, quantity: 1 }],
+      mode:        mode as 'subscription' | 'payment',
+      success_url: `${baseUrl}/billing?success=true`,
+      cancel_url:  `${baseUrl}/billing?canceled=true`,
+      metadata:    { userId },
+    })
 
-    return NextResponse.json({ url: session.url });
-  } catch (error: any) {
-    console.error('Stripe checkout error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ url: session.url })
+  } catch (err: unknown) {
+    console.error('[billing/stripe/checkout]', err)
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    const status = msg === 'Authentication required' ? 401 : msg.includes('Permission') ? 403 : 500
+    return NextResponse.json({ error: msg }, { status })
   }
 }
