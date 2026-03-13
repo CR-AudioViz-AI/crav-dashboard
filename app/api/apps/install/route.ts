@@ -1,68 +1,58 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/rbac';
-import { createAuditLog } from '@/lib/audit';
+// app/api/apps/install/route.ts
+// javari-dashboard — install app (Supabase)
+// Friday, March 13, 2026
+
+import { NextRequest, NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/rbac'
+import { createServiceClient } from '@/lib/supabase/server'
+import { createAuditLog } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId, userId } = await requirePermission('apps:install');
-    const body = await req.json();
-    const { appId, versionId } = body;
+    const { userId } = await requirePermission('apps:install')
+    const { appId } = await req.json()
 
     if (!appId) {
-      return NextResponse.json({ error: 'appId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'appId is required' }, { status: 400 })
     }
 
-    const app = await prisma.app.findUnique({
-      where: { appId },
-      include: { versions: { where: { published: true }, orderBy: { createdAt: 'desc' } } },
-    });
+    const supabase = createServiceClient()
 
-    if (!app || !app.published) {
-      return NextResponse.json({ error: 'App not found or not published' }, { status: 404 });
+    const { data: app } = await supabase
+      .from('apps')
+      .select('id, app_id, name, published')
+      .eq('app_id', appId)
+      .single()
+
+    if (!app?.published) {
+      return NextResponse.json({ error: 'App not found or not published' }, { status: 404 })
     }
 
-    const version = versionId
-      ? await prisma.appVersion.findUnique({ where: { id: versionId } })
-      : app.versions[0];
+    const { data: existing } = await supabase
+      .from('app_installs')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('app_id', app.id)
+      .single()
 
-    if (!version) {
-      return NextResponse.json({ error: 'No published version found' }, { status: 404 });
+    if (existing) {
+      return NextResponse.json({ error: 'App already installed' }, { status: 409 })
     }
 
-    const existingInstall = await prisma.appInstall.findUnique({
-      where: { orgId_appId: { orgId, appId: app.id } },
-    });
+    const { data: install, error: installErr } = await supabase
+      .from('app_installs')
+      .insert({ user_id: userId, app_id: app.id, enabled: true })
+      .select('id')
+      .single()
 
-    if (existingInstall) {
-      return NextResponse.json({ error: 'App already installed' }, { status: 409 });
-    }
+    if (installErr) throw new Error(installErr.message)
 
-    const install = await prisma.appInstall.create({
-      data: {
-        orgId,
-        appId: app.id,
-        versionId: version.id,
-        enabled: true,
-      },
-      include: { app: true, version: true },
-    });
+    await createAuditLog({ userId, action: 'app.install', target: 'app', targetId: app.id, meta: { appId } })
 
-    await createAuditLog({
-      userId,
-      orgId,
-      action: 'app.install',
-      target: 'app',
-      targetId: app.id,
-      meta: { appId: app.appId, version: version.version },
-    });
-
-    return NextResponse.json({ install });
-  } catch (error: any) {
-    console.error('App install error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ installId: install?.id, appId, success: true })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    const status = msg === 'Authentication required' ? 401 : 500
+    return NextResponse.json({ error: msg }, { status })
   }
 }
