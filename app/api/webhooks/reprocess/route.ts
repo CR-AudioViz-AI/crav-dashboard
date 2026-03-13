@@ -1,24 +1,27 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// app/api/webhooks/reprocess/route.ts
+// javari-dashboard — reprocess failed webhooks (admin, Supabase)
+// Friday, March 13, 2026
 
-async function processStripe(event: any) { return true; }
-async function processPayPal(event: any) { return true; }
+import { NextRequest, NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/rbac'
+import { createServiceClient } from '@/lib/supabase/server'
 
-export async function POST(req: Request) {
-  const { id } = await req.json();
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+export async function POST(req: NextRequest) {
+  try {
+    await requirePermission('admin:write')
+    const { eventId } = await req.json()
+    const supabase = createServiceClient()
 
-  const evt = await prisma.webhookEvent.findUnique({ where: { id } });
-  if (!evt) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const query = supabase.from('webhook_events').select('*').eq('processed', false)
+    if (eventId) query.eq('event_id', eventId)
+    const { data: events, error } = await query.limit(50)
 
-  if (evt.processed) return NextResponse.json({ ok: true, message: "Already processed" });
+    if (error) throw new Error(error.message)
 
-  const ok = evt.provider === "STRIPE"
-    ? await processStripe(evt.raw)
-    : await processPayPal(evt.raw);
-
-  if (ok) {
-    await prisma.webhookEvent.update({ where: { id }, data: { processed: true } });
+    return NextResponse.json({ queued: events?.length ?? 0, events: events?.map(e => ({ id: e.id, type: e.event_type, provider: e.provider })) })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    const status = msg === 'Authentication required' ? 401 : msg.includes('Permission') ? 403 : 500
+    return NextResponse.json({ error: msg }, { status })
   }
-  return NextResponse.json({ ok });
 }
