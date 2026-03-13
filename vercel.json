@@ -1,1 +1,9 @@
-{"$schema":"https://openapi.vercel.sh/vercel.json","github":{"autoAlias":false}}
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "https://dashboard.craudiovizai.com"
+  }
+}
