@@ -3,7 +3,7 @@
 // Timestamp: 2025-11-28 15:06 UTC
 
 import Link from "next/link";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   Sparkles,
   ExternalLink,
@@ -36,7 +36,7 @@ function getIcon(category: string): string {
 }
 
 async function getAppsData() {
-  const supabase = createAdminClient();
+  const supabase = createServiceClient();
 
   // Fetch all active apps
   const { data: apps, error } = await supabase
