@@ -2,7 +2,7 @@
 // CR AudioViz AI Assets Management - REAL Supabase Data
 // Timestamp: 2025-11-28 15:29 UTC
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   Image,
   FileText,
@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 async function getAssetsData() {
-  const supabase = createAdminClient();
+  const supabase = createServiceClient();
 
   // Get assets from the assets table
   const { data: assets, error } = await supabase
