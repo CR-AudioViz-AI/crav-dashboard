@@ -1,53 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/rbac';
-import { createAuditLog } from '@/lib/audit';
+// app/api/apps/uninstall/route.ts
+// javari-dashboard — uninstall app (Supabase)
+// Friday, March 13, 2026
 
-export async function DELETE(req: NextRequest) {
+import { NextRequest, NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/rbac'
+import { createServiceClient } from '@/lib/supabase/server'
+import { createAuditLog } from '@/lib/audit'
+
+export async function POST(req: NextRequest) {
   try {
-    const { orgId, userId } = await requirePermission('apps:uninstall');
-    const { searchParams } = new URL(req.url);
-    const appId = searchParams.get('appId');
+    const { userId } = await requirePermission('apps:install')
+    const { appId } = await req.json()
 
     if (!appId) {
-      return NextResponse.json({ error: 'appId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'appId is required' }, { status: 400 })
     }
 
-    const app = await prisma.app.findUnique({
-      where: { appId },
-    });
+    const supabase = createServiceClient()
 
-    if (!app) {
-      return NextResponse.json({ error: 'App not found' }, { status: 404 });
-    }
+    const { error } = await supabase
+      .from('app_installs')
+      .delete()
+      .eq('user_id', userId)
+      .eq('app_id', appId)
 
-    const install = await prisma.appInstall.findUnique({
-      where: { orgId_appId: { orgId, appId: app.id } },
-    });
+    if (error) throw new Error(error.message)
 
-    if (!install) {
-      return NextResponse.json({ error: 'App not installed' }, { status: 404 });
-    }
+    await createAuditLog({ userId, action: 'app.uninstall', target: 'app', targetId: appId })
 
-    await prisma.appInstall.delete({
-      where: { id: install.id },
-    });
-
-    await createAuditLog({
-      userId,
-      orgId,
-      action: 'app.uninstall',
-      target: 'app',
-      targetId: app.id,
-      meta: { appId: app.appId },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('App uninstall error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
