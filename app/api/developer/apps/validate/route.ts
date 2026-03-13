@@ -1,131 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+// app/api/developer/apps/validate/route.ts
+// javari-dashboard — validate app manifest (Supabase)
+// Friday, March 13, 2026
 
-interface AppManifest {
-  id: string;
-  name: string;
-  version: string;
-  scopes: string[];
-  permissions: string[];
-  taskTypes: { code: string; label: string }[];
-  routes?: {
-    dashboardPanel?: string;
-    settings?: string;
-  };
-  serverHooksModule?: string;
-  clientModule?: string;
-}
+import { NextRequest, NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/rbac'
+import { z } from 'zod'
 
-function validateManifest(manifest: any): { valid: boolean; errors: string[]; warnings: string[] } {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  if (!manifest.id || typeof manifest.id !== 'string') {
-    errors.push('id is required and must be a string');
-  } else if (!/^[a-z0-9-]+$/.test(manifest.id)) {
-    errors.push('id must contain only lowercase letters, numbers, and hyphens');
-  }
-
-  if (!manifest.name || typeof manifest.name !== 'string') {
-    errors.push('name is required and must be a string');
-  }
-
-  if (!manifest.version || typeof manifest.version !== 'string') {
-    errors.push('version is required and must be a string');
-  } else if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) {
-    warnings.push('version should follow semver format (e.g., 1.0.0)');
-  }
-
-  if (!Array.isArray(manifest.scopes)) {
-    errors.push('scopes must be an array');
-  } else if (manifest.scopes.length === 0) {
-    errors.push('at least one scope is required');
-  } else {
-    const validScopes = ['org', 'user'];
-    manifest.scopes.forEach((scope: string) => {
-      if (!validScopes.includes(scope)) {
-        errors.push(`invalid scope: ${scope}. Valid scopes: ${validScopes.join(', ')}`);
-      }
-    });
-  }
-
-  if (!Array.isArray(manifest.permissions)) {
-    errors.push('permissions must be an array');
-  } else if (manifest.permissions.length === 0) {
-    errors.push('at least one permission is required');
-  } else {
-    const validPermissions = [
-      'credits:spend',
-      'credits:view',
-      'assets:read',
-      'assets:write',
-      'org:read',
-      'user:read',
-    ];
-    manifest.permissions.forEach((perm: string) => {
-      if (!validPermissions.includes(perm)) {
-        warnings.push(`non-standard permission: ${perm}`);
-      }
-    });
-  }
-
-  if (!Array.isArray(manifest.taskTypes)) {
-    errors.push('taskTypes must be an array');
-  } else if (manifest.taskTypes.length === 0) {
-    errors.push('at least one taskType is required for chargeable apps');
-  } else {
-    manifest.taskTypes.forEach((task: any, index: number) => {
-      if (!task.code || typeof task.code !== 'string') {
-        errors.push(`taskTypes[${index}].code is required and must be a string`);
-      } else if (!/^[A-Z_]+$/.test(task.code)) {
-        warnings.push(`taskTypes[${index}].code should be UPPER_SNAKE_CASE`);
-      }
-      if (!task.label || typeof task.label !== 'string') {
-        errors.push(`taskTypes[${index}].label is required and must be a string`);
-      }
-    });
-  }
-
-  if (manifest.routes) {
-    if (manifest.routes.dashboardPanel && typeof manifest.routes.dashboardPanel !== 'string') {
-      errors.push('routes.dashboardPanel must be a string');
-    }
-    if (manifest.routes.settings && typeof manifest.routes.settings !== 'string') {
-      errors.push('routes.settings must be a string');
-    }
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
-  };
-}
+const ManifestSchema = z.object({
+  appId:       z.string().min(3).max(64).regex(/^[a-z0-9-]+$/),
+  name:        z.string().min(1).max(100),
+  version:     z.string().regex(/^\d+\.\d+\.\d+$/),
+  description: z.string().max(500).optional(),
+  entrypoint:  z.string().optional(),
+  permissions: z.array(z.string()).optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
-    await requirePermission('developer:publish');
+    await requirePermission('apps:publish')
+    const body = await req.json()
+    const result = ManifestSchema.safeParse(body)
 
-    const body = await req.json();
-    const { manifest } = body;
-
-    if (!manifest) {
-      return NextResponse.json({ error: 'manifest is required' }, { status: 400 });
+    if (!result.success) {
+      return NextResponse.json(
+        { valid: false, errors: result.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
 
-    const validation = validateManifest(manifest);
-
-    return NextResponse.json({
-      valid: validation.valid,
-      errors: validation.errors,
-      warnings: validation.warnings,
-      manifest,
-    });
-  } catch (error: any) {
-    console.error('Manifest validation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ valid: true, manifest: result.data })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
