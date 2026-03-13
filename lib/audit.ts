@@ -1,99 +1,35 @@
-import { prisma } from './prisma';
-import { getErrorMessage, logError, formatApiError } from '@/lib/utils/error-utils';
+// lib/audit.ts
+// javari-dashboard — Audit logging via Supabase
+// Friday, March 13, 2026
 
-export type AuditAction =
-  | 'auth.login'
-  | 'auth.logout'
-  | 'auth.signup'
-  | 'auth.failed'
-  | 'app.install'
-  | 'app.uninstall'
-  | 'billing.subscription_created'
-  | 'billing.subscription_updated'
-  | 'billing.subscription_canceled'
-  | 'billing.payment_succeeded'
-  | 'billing.payment_failed'
-  | 'credits.spend'
-  | 'credits.topup'
-  | 'credits.refund'
-  | 'settings.org_updated'
-  | 'settings.member_invited'
-  | 'settings.member_removed'
-  | 'settings.apikey_created';
+import { createServiceClient } from '@/lib/supabase/server'
 
-export async function createAuditLog({
-  userId,
-  orgId,
-  action,
-  target,
-  targetId,
-  meta = {},
-  ipAddress,
-  userAgent,
-}: {
-  userId?: string;
-  orgId?: string;
-  action: AuditAction;
-  target?: string;
-  targetId?: string;
-  meta?: any;
-  ipAddress?: string;
-  userAgent?: string;
-}) {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        userId,
-        orgId,
-        action,
-        target,
-        targetId,
-        meta: meta as any,
-        ipAddress,
-        userAgent,
-      },
-    });
-  } catch (error: unknown) {
-    logError('Failed to create audit log:', error);
-  }
+interface AuditLogParams {
+  userId?: string
+  orgId?: string
+  action: string
+  target: string
+  targetId?: string
+  meta?: Record<string, unknown>
+  ipAddress?: string
+  userAgent?: string
 }
 
-export async function getAuditLogs({
-  orgId,
-  userId,
-  action,
-  limit = 50,
-  offset = 0,
-}: {
-  orgId?: string;
-  userId?: string;
-  action?: string;
-  limit?: number;
-  offset?: number;
-}) {
-  const where: any = {};
-  if (orgId) where.orgId = orgId;
-  if (userId) where.userId = userId;
-  if (action) where.action = action;
-
-  const [logs, total] = await Promise.all([
-    prisma.auditLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    }),
-    prisma.auditLog.count({ where }),
-  ]);
-
-  return { logs, total };
+export async function createAuditLog(params: AuditLogParams): Promise<void> {
+  try {
+    const supabase = createServiceClient()
+    await supabase.from('audit_logs').insert({
+      user_id:    params.userId,
+      action:     params.action,
+      target:     params.target,
+      target_id:  params.targetId,
+      meta:       params.meta ?? {},
+      ip_address: params.ipAddress,
+      user_agent: params.userAgent,
+      created_at: new Date().toISOString(),
+    })
+  } catch (err) {
+    // Audit log failure must never break the main request
+    console.error('[audit] Failed to write audit log:', err)
+  }
 }
