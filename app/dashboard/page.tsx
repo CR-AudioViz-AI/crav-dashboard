@@ -18,7 +18,7 @@ import {
   Activity,
   AlertCircle,
 } from "lucide-react";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 
 /* ---------- Small presentational helpers (server-safe) ---------- */
 
@@ -102,7 +102,7 @@ function AppTile({
 /* ---------- Data Fetching ---------- */
 
 async function getDashboardData() {
-  const supabase = createAdminClient();
+  const supabase = createServiceClient();
   
   // Fetch apps from database
   const { data: apps, error: appsError } = await supabase
