@@ -2,7 +2,7 @@
 // CR AudioViz AI Settings - REAL Supabase Data
 // Timestamp: 2025-11-28 15:20 UTC
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   Settings,
   User,
@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 async function getSettingsData() {
-  const supabase = createAdminClient();
+  const supabase = createServiceClient();
 
   // Get all profiles (team members)
   const { data: profiles } = await supabase
