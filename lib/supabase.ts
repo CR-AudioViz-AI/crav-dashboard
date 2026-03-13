@@ -1,7 +1,7 @@
 // lib/supabase.ts
-// javari-dashboard — re-export for legacy imports
+// javari-dashboard — Supabase client re-exports for compatibility
 // Friday, March 13, 2026
 
 export { createClient as createSupabaseBrowserClient } from './supabase/client'
-export { createClient as createSupabaseServerClient } from './supabase/server'
+export { createClient as createSupabaseServerClient, createServiceClient } from './supabase/server'
 export { supabase } from './supabase/client'
