@@ -2,7 +2,7 @@
 // CR AudioViz AI Credits Management - REAL Supabase Data
 // Timestamp: 2025-11-28 15:10 UTC
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   Wallet,
   TrendingUp,
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 async function getCreditsData() {
-  const supabase = createAdminClient();
+  const supabase = createServiceClient();
 
   // Get all user credits
   const { data: userCredits, error: creditsError } = await supabase
