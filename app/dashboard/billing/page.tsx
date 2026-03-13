@@ -3,7 +3,7 @@
 // Timestamp: 2025-11-28 15:15 UTC
 
 import Link from "next/link";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   CreditCard,
   Check,
@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 async function getBillingData() {
-  const supabase = createAdminClient();
+  const supabase = createServiceClient();
 
   // Get subscriptions
   const { data: subscriptions } = await supabase
