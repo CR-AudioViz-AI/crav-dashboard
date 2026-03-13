@@ -1,106 +1,66 @@
-import { Role } from '@prisma/client';
-import { auth } from './auth';
-import { prisma } from './prisma';
+// lib/rbac.ts
+// javari-dashboard — Role-based access control using Supabase Auth
+// Friday, March 13, 2026
+
+import { createClient } from '@/lib/supabase/server'
 
 export type Permission =
-  | 'billing:manage'
-  | 'members:invite'
-  | 'members:remove'
-  | 'apps:install'
-  | 'apps:uninstall'
-  | 'credits:spend'
-  | 'credits:view'
-  | 'assets:upload'
-  | 'assets:delete'
-  | 'settings:update'
-  | 'developer:publish'
-  | 'org:delete';
+  | 'credits:spend' | 'credits:view'
+  | 'billing:manage' | 'billing:view'
+  | 'apps:install' | 'apps:publish'
+  | 'admin:read' | 'admin:write'
 
-const rolePermissions: Record<Role, Permission[]> = {
-  OWNER: [
-    'billing:manage',
-    'members:invite',
-    'members:remove',
-    'apps:install',
-    'apps:uninstall',
-    'credits:spend',
-    'credits:view',
-    'assets:upload',
-    'assets:delete',
-    'settings:update',
-    'developer:publish',
-    'org:delete',
-  ],
-  ADMIN: [
-    'members:invite',
-    'members:remove',
-    'apps:install',
-    'apps:uninstall',
-    'credits:spend',
-    'credits:view',
-    'assets:upload',
-    'assets:delete',
-    'settings:update',
-  ],
-  MEMBER: ['apps:install', 'credits:spend', 'credits:view'],
-  VIEWER: ['credits:view'],
-};
-
-export async function requireAuth() {
-  const session = await auth();
-  if (!session?.user) {
-    throw new Error('Unauthorized');
-  }
-  return session;
+interface AuthContext {
+  userId: string
+  userEmail: string
+  role: string
 }
 
-export async function requireOrg() {
-  const session = await requireAuth();
-  const orgId = (session.user as any).orgId;
+/** Verify session exists and optionally check permission.
+ *  Throws a descriptive string on failure — caller wraps in 403/401 response. */
+export async function requirePermission(permission?: Permission): Promise<AuthContext> {
+  const supabase = createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (!orgId) {
-    throw new Error('No organization found');
+  if (error || !user) {
+    throw new Error('Authentication required')
   }
 
-  return { session, orgId, userId: session.user?.id || '' };
-}
+  // Fetch role from profiles table
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, subscription_tier')
+    .eq('id', user.id)
+    .single()
 
-export async function requirePermission(permission: Permission) {
-  const { session, orgId } = await requireOrg();
-  const role = (session.user as any).role as Role;
+  const role = profile?.role ?? 'user'
 
-  if (!rolePermissions[role]?.includes(permission)) {
-    throw new Error(`Permission denied: ${permission}`);
+  // Admin bypass
+  const ADMIN_EMAILS = [
+    'royhenderson@craudiovizai.com',
+    'cindyhenderson@craudiovizai.com',
+    'roy@craudiovizai.com',
+    'admin@craudiovizai.com',
+  ]
+  if (ADMIN_EMAILS.includes(user.email!)) {
+    return { userId: user.id, userEmail: user.email!, role: 'admin' }
   }
 
-  return { session, orgId, userId: session.user?.id || '', role };
-}
-
-export async function hasPermission(role: Role, permission: Permission): Promise<boolean> {
-  return rolePermissions[role]?.includes(permission) || false;
-}
-
-export async function getMembershipWithOrg(userId: string) {
-  const membership = await prisma.membership.findFirst({
-    where: { userId },
-    include: {
-      organization: {
-        include: {
-          creditWallet: true,
-          subscriptions: {
-            where: { status: 'ACTIVE' },
-            include: { plan: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-        },
-      },
-    },
-  });
-
-  if (!membership) {
-    throw new Error('No organization membership found');
+  // Permission check (simple role-based)
+  if (permission) {
+    const allowed = checkRolePermission(role, permission)
+    if (!allowed) throw new Error(`Permission denied: ${permission}`)
   }
 
-  return membership;
+  return { userId: user.id, userEmail: user.email!, role }
+}
+
+function checkRolePermission(role: string, permission: Permission): boolean {
+  const rolePerms: Record<string, Permission[]> = {
+    admin:  ['credits:spend','credits:view','billing:manage','billing:view','apps:install','apps:publish','admin:read','admin:write'],
+    pro:    ['credits:spend','credits:view','billing:manage','billing:view','apps:install','apps:publish'],
+    user:   ['credits:spend','credits:view','billing:view','apps:install'],
+    viewer: ['credits:view','billing:view'],
+  }
+  return (rolePerms[role] ?? rolePerms.viewer).includes(permission)
 }
