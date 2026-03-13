@@ -1,4 +1,7 @@
-import Script from 'next/script';
+// app/layout.tsx
+// javari-dashboard — Root layout
+// Friday, March 13, 2026
+
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
@@ -6,8 +9,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'crav-dashboard | CR AudioViz AI',
-  description: 'Part of the CR AudioViz AI creative ecosystem',
+  title: 'Javari Dashboard | CR AudioViz AI',
+  description: 'Admin and creator dashboard — CR AudioViz AI platform',
 }
 
 export const viewport: Viewport = {
@@ -15,24 +18,16 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  viewportFit: 'cover',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
         <meta name="format-detection" content="telephone=no" />
       </head>
-      <body className={`${inter.className} min-h-screen min-h-[100dvh]`}>
-        <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100">
-          {children}
-        </div>
-        <Script src="https://javariai.com/embed.js" strategy="lazyOnload" />
+      <body className={`${inter.className} min-h-screen bg-background`}>
+        {children}
       </body>
     </html>
   )
