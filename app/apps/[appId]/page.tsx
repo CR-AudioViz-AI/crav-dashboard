@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import ClientMount from "./plugin-client-mount";
 import {
   ArrowLeft,
@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 async function getAppData(appId: string) {
-  const supabase = createAdminClient();
+  const supabase = createServiceClient();
 
   // Try to find by slug first, then by ID
   let { data: app, error } = await supabase
