@@ -1,62 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/rbac';
+// app/api/credits/ledger/route.ts
+// javari-dashboard — credit ledger (admin) (Supabase)
+// Friday, March 13, 2026
+
+import { NextRequest, NextResponse } from 'next/server'
+import { requirePermission } from '@/lib/rbac'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(req: NextRequest) {
   try {
-    const { orgId } = await requirePermission('credits:view');
+    await requirePermission('admin:read')
+    const { searchParams } = new URL(req.url)
+    const targetUserId = searchParams.get('userId')
+    const limit = Math.min(parseInt(searchParams.get('limit') ?? '100'), 500)
+    const supabase = createServiceClient()
 
-    const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
-    const type = searchParams.get('type');
-    const taskType = searchParams.get('taskType');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    let query = supabase
+      .from('credit_transactions')
+      .select('id, user_id, type, action, amount, balance_before, balance_after, description, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit)
 
-    const wallet = await prisma.creditWallet.findUnique({
-      where: { orgId },
-    });
+    if (targetUserId) query = query.eq('user_id', targetUserId)
 
-    if (!wallet) {
-      return NextResponse.json({ error: 'Wallet not found' }, { status: 404 });
-    }
+    const { data, error } = await query
+    if (error) throw new Error(error.message)
 
-    const where: any = { walletId: wallet.id };
-    if (type) where.type = type;
-    if (taskType) where.taskType = taskType;
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate);
-      if (endDate) where.createdAt.lte = new Date(endDate);
-    }
-
-    const [transactions, total] = await Promise.all([
-      prisma.creditTransaction.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-        include: {
-          meter: true,
-          app: true,
-        },
-      }),
-      prisma.creditTransaction.count({ where }),
-    ]);
-
-    return NextResponse.json({
-      transactions,
-      total,
-      limit,
-      offset,
-      balance: wallet.balance,
-    });
-  } catch (error: any) {
-    console.error('Ledger fetch error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ transactions: data ?? [] })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    const status = msg.includes('Authentication') ? 401 : msg.includes('Permission') ? 403 : 500
+    return NextResponse.json({ error: msg }, { status })
   }
 }
