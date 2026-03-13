@@ -10,7 +10,7 @@ import Stripe from 'stripe'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
-export const config = { api: { bodyParser: false } }
+// NOTE: No `export const config` — App Router handles raw body natively via req.text()
 
 export async function POST(req: NextRequest) {
   const body      = await req.text()
@@ -44,14 +44,19 @@ export async function POST(req: NextRequest) {
   // Record event
   const { data: webhookRow } = await supabase
     .from('webhook_events')
-    .upsert({ provider: 'stripe', event_type: event.type, event_id: event.id, payload: event, processed: false },
-             { onConflict: 'event_id' })
+    .upsert(
+      { provider: 'stripe', event_type: event.type, event_id: event.id, payload: event, processed: false },
+      { onConflict: 'event_id' }
+    )
     .select('id')
     .single()
 
   try {
     await processStripeEvent(event, supabase)
-    await supabase.from('webhook_events').update({ processed: true, processed_at: new Date().toISOString() }).eq('id', webhookRow?.id)
+    await supabase
+      .from('webhook_events')
+      .update({ processed: true, processed_at: new Date().toISOString() })
+      .eq('id', webhookRow?.id)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'processing error'
     console.error('[stripe/webhook] Processing error:', msg)
@@ -62,7 +67,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true })
 }
 
-async function processStripeEvent(event: Stripe.Event, supabase: ReturnType<typeof createServiceClient>) {
+async function processStripeEvent(
+  event: Stripe.Event,
+  supabase: ReturnType<typeof createServiceClient>
+) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
@@ -70,33 +78,72 @@ async function processStripeEvent(event: Stripe.Event, supabase: ReturnType<type
       if (!userId) break
 
       if (session.mode === 'payment' && session.amount_total) {
-        const credits = Math.floor(session.amount_total / 100) * 100  // $1 = 100 credits
-        const { data: wallet } = await supabase.from('user_credits').select('balance').eq('user_id', userId).single()
+        const credits = Math.floor(session.amount_total / 100) * 100
+        const { data: wallet } = await supabase
+          .from('user_credits')
+          .select('balance')
+          .eq('user_id', userId)
+          .single()
+
         if (wallet) {
           const newBalance = wallet.balance + credits
-          await supabase.from('user_credits').update({ balance: newBalance, lifetime_earned: newBalance }).eq('user_id', userId)
+          await supabase
+            .from('user_credits')
+            .update({ balance: newBalance, lifetime_earned: newBalance })
+            .eq('user_id', userId)
           await supabase.from('credit_transactions').insert({
-            user_id: userId, type: 'topup', action: 'stripe_payment',
-            amount: credits, balance_before: wallet.balance, balance_after: newBalance,
-            description: 'Credit top-up via Stripe', operation: session.id,
+            user_id:        userId,
+            type:           'topup',
+            action:         'stripe_payment',
+            amount:         credits,
+            balance_before: wallet.balance,
+            balance_after:  newBalance,
+            description:    'Credit top-up via Stripe',
+            operation:      session.id,
           })
-          await createAuditLog({ userId, action: 'credits.topup', target: 'credits', meta: { credits, provider: 'stripe', sessionId: session.id } })
+          await createAuditLog({
+            userId,
+            action:  'credits.topup',
+            target:  'credits',
+            meta:    { credits, provider: 'stripe', sessionId: session.id },
+          })
         }
       }
 
       if (session.mode === 'subscription') {
-        await supabase.from('user_credits').update({ subscription_active: true }).eq('user_id', userId)
-        await createAuditLog({ userId, action: 'billing.subscription_created', target: 'subscription', meta: { provider: 'stripe' } })
+        await supabase
+          .from('user_credits')
+          .update({ subscription_active: true })
+          .eq('user_id', userId)
+        await createAuditLog({
+          userId,
+          action: 'billing.subscription_created',
+          target: 'subscription',
+          meta:   { provider: 'stripe' },
+        })
       }
       break
     }
 
     case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription
-      const { data: profile } = await supabase.from('profiles').select('id').eq('stripe_customer_id', sub.customer as string).single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('stripe_customer_id', sub.customer as string)
+        .single()
+
       if (profile) {
-        await supabase.from('user_credits').update({ subscription_active: false }).eq('user_id', profile.id)
-        await createAuditLog({ userId: profile.id, action: 'billing.subscription_canceled', target: 'subscription', meta: { provider: 'stripe' } })
+        await supabase
+          .from('user_credits')
+          .update({ subscription_active: false })
+          .eq('user_id', profile.id)
+        await createAuditLog({
+          userId: profile.id,
+          action: 'billing.subscription_canceled',
+          target: 'subscription',
+          meta:   { provider: 'stripe' },
+        })
       }
       break
     }
