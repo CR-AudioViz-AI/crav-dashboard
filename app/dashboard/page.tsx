@@ -191,7 +191,7 @@ export default async function DashboardPage() {
           <div className="flex items-start justify-between gap-6">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
-                Welcome to CRAV Dashboard
+                Welcome to javari Dashboard
               </h1>
               <p className="mt-2 text-slate-600">
                 Unified command center for <strong>apps</strong>,{" "}

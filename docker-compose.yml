@@ -3,24 +3,24 @@ version: "3.9"
 services:
   db:
     image: postgres:16
-    container_name: crav-unified-db
+    container_name: javari-unified-db
     environment:
-      POSTGRES_DB: crav_unified
-      POSTGRES_USER: crav
-      POSTGRES_PASSWORD: crav
+      POSTGRES_DB: javari_unified
+      POSTGRES_USER: javari
+      POSTGRES_PASSWORD: javari
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U crav"]
+      test: ["CMD-SHELL", "pg_isready -U javari"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: crav-unified-redis
+    container_name: javari-unified-redis
     ports:
       - "6379:6379"
     volumes:

@@ -22,7 +22,7 @@ export function Navigation() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">CRAV Dashboard</h1>
+              <h1 className="text-xl font-bold text-gray-900">javari Dashboard</h1>
             </div>
             <div className="hidden sm:ml-8 sm:flex sm:space-x-8">
               {navItems.map((item) => {

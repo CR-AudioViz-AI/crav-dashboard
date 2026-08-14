@@ -7,7 +7,7 @@ export default function HeightReporter() {
     const post = () => {
       const h = document.documentElement.scrollHeight || document.body.scrollHeight || 0;
       if (window.parent && typeof window.parent.postMessage === "function") {
-        window.parent.postMessage({ type: "CRAV_IFRAME_HEIGHT", height: h }, "*");
+        window.parent.postMessage({ type: "javari_IFRAME_HEIGHT", height: h }, "*");
       }
     };
 

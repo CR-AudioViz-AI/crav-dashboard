@@ -1,8 +1,8 @@
-# CRAV Unified Apps Dashboard
+# javari Unified Apps Dashboard
 
-A production-ready, centralized dashboard that unifies all CRAV apps under one account/organization with shared credits, per-task metering, and integrated billing via Stripe + PayPal.
+A production-ready, centralized dashboard that unifies all javari apps under one account/organization with shared credits, per-task metering, and integrated billing via Stripe + PayPal.
 
-![Dashboard Preview](https://via.placeholder.com/800x400?text=CRAV+Unified+Dashboard)
+![Dashboard Preview](https://via.placeholder.com/800x400?text=javari+Unified+Dashboard)
 
 ## ✨ Features
 
@@ -36,7 +36,7 @@ A production-ready, centralized dashboard that unifies all CRAV apps under one a
 1. **Clone and install**
    ```bash
    git clone <repo>
-   cd crav-unified
+   cd javari-unified
    npm install
    ```
 
@@ -159,7 +159,7 @@ Apps integrate via a manifest file and SDK:
 ### SDK Usage
 
 ```typescript
-import { createPluginSDK } from '@crav/plugin-sdk';
+import { createPluginSDK } from '@javari/plugin-sdk';
 
 const sdk = createPluginSDK(context);
 
@@ -183,7 +183,7 @@ console.log('Brand color:', assets.brandKit.primaryColor);
 ## 📁 Project Structure
 
 ```
-crav-unified/
+javari-unified/
 ├── prisma/
 │   ├── schema.prisma        # Database schema
 │   ├── seed.ts             # Seed data
@@ -363,11 +363,11 @@ npm run build
 
 ## 📄 License
 
-Proprietary - CRAV / CRAudioVizAI
+Proprietary - javari / CRAudioVizAI
 
 ## 👥 Support
 
-For issues, questions, or feature requests, contact the CRAV development team.
+For issues, questions, or feature requests, contact the javari development team.
 
 ## 🎉 Getting Started
 

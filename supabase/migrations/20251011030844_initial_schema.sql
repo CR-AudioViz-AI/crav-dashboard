@@ -1,5 +1,5 @@
 /*
-  # CRAV Unified Dashboard - Initial Schema
+  # javari Unified Dashboard - Initial Schema
   
   Complete database schema for the unified dashboard system including:
   - Identity & Access (Users, Orgs, Memberships, Roles)

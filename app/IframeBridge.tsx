@@ -7,7 +7,7 @@ import { useEffect } from "react";
  * can resize perfectly (no inner scrollbars / no cut-offs).
  *
  * The SolutionsEmbedClient in the website listens for messages with:
- *   { type: "CRAV_IFRAME_HEIGHT", height: number }
+ *   { type: "javari_IFRAME_HEIGHT", height: number }
  */
 export default function IframeBridge() {
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function IframeBridge() {
         document.body.offsetHeight,
         document.documentElement.clientHeight
       );
-      window.parent?.postMessage({ type: "CRAV_IFRAME_HEIGHT", height: h }, "*");
+      window.parent?.postMessage({ type: "javari_IFRAME_HEIGHT", height: h }, "*");
     };
 
     post();
