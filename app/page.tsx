@@ -1,7 +1,7 @@
 "use client";
 // app/page.tsx — Javari Dashboard · CR AudioViz AI · EIN 39-3646201 · May 2026
 import { useState } from "react";
-const T=[{"i": "\ud83e\udd16", "l": "Javari AI", "d": "Chat with Javari", "h": "https://javariai.com/javari"}, {"i": "\ud83d\udc9a", "l": "Grants", "d": "Find funding", "h": "https://javariai.com/grants"}, {"i": "\ud83d\udcf1", "l": "Social Posts", "d": "Generate content", "h": "https://javari-social-posts-roy-hendersons-projects-1d3d5e94.vercel.app"}, {"i": "\ud83d\udcca", "l": "Analytics", "d": "Platform insights", "h": "/analytics"}];
+const T=[{"i": "\ud83e\udd16", "l": "Javari AI", "d": "Chat with Javari", "h": "https://javariai.com/javari"}, {"i": "\ud83d\udc9a", "l": "Grants", "d": "Find funding", "h": "https://javariai.com/grants"}, {"i": "\ud83d\udcf1", "l": "Social Posts", "d": "Generate content", "h": "https://craudiovizai.com/apps/social-graphics"}, {"i": "\ud83d\udcca", "l": "Analytics", "d": "Platform insights", "h": "https://craudiovizai.com/dashboard"}];
 export default function P() {
   const [i,setI]=useState(""); const [o,setO]=useState(""); const [l,setL]=useState(false);
   async function go() { if(!i.trim())return; setL(true);setO("");
