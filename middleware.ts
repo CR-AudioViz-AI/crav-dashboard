@@ -4,6 +4,7 @@
 // Friday, March 13, 2026
 
 import { NextResponse } from 'next/server'
+import { track } from "@/lib/analytics/track"
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
@@ -38,6 +39,27 @@ export async function middleware(request: NextRequest) {
 
   // Session refresh for protected routes
   const response = NextResponse.next({ request: { headers: request.headers } })
+
+  // ── VISITOR TRACKING ────────────────────────────────────────────────────────
+  // 2026-08-16: every request logged, human or machine. Fire and forget — a
+  // visitor must not wait on analytics and an analytics outage must not take a
+  // page down. Bots are counted rather than blocked, because a traffic figure
+  // that silently includes AhrefsBot is a lie told to yourself.
+  try {
+    void track({
+      path: request.nextUrl.pathname,
+      method: request.method,
+      userAgent: request.headers.get('user-agent') ?? '',
+      referrer: request.headers.get('referer'),
+      ip: (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || null,
+      country: request.headers.get('x-vercel-ip-country'),
+      appId: request.nextUrl.hostname,
+      sessionId: request.cookies.get('zsid')?.value ?? null,
+      userId: null,
+    })
+  } catch {
+    // Never let tracking break a request.
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
