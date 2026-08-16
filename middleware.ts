@@ -3,7 +3,7 @@
 // Matches craudiovizai pattern
 // Friday, March 13, 2026
 
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextFetchEvent } from 'next/server'
 import { track } from "@/lib/analytics/track"
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
@@ -11,12 +11,12 @@ import { createServerClient } from '@supabase/ssr'
 const ATTACK_PATTERNS = {
   sqlInjection: [/union.*select/i, /insert.*into/i, /drop.*table/i],
   xss:          [/<script[\s\S]*?>/i, /javascript:/i, /onerror\s*=/i],
-  pathTraversal: [/\.\.\/\.\.\//, /\.\.\\\.\.\\/, /%2e%2e%2f/i],
+  pathTraversal: [/\.\.\/\.\.\//, /\.\.\\.\.\\/, /%2e%2e%2f/i],
 }
 
 const BLOCKED_AGENTS = ['sqlmap', 'nikto', 'nmap', 'metasploit']
 
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl
 
   // Static / internal passthrough
@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
   // page down. Bots are counted rather than blocked, because a traffic figure
   // that silently includes AhrefsBot is a lie told to yourself.
   try {
-    void track({
+    event.waitUntil(track({
       path: request.nextUrl.pathname,
       method: request.method,
       userAgent: request.headers.get('user-agent') ?? '',
@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
       appId: request.nextUrl.hostname,
       sessionId: request.cookies.get('zsid')?.value ?? null,
       userId: null,
-    })
+    }))
   } catch {
     // Never let tracking break a request.
   }
@@ -79,5 +79,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
 }
