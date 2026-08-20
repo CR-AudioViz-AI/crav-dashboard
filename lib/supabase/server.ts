@@ -1,3 +1,13 @@
+// @auth-reviewed: createClient() here is the cookie client, and its ONLY
+// importer is app/api/auth/callback - verified 2026-08-20. That route calls
+// exchangeCodeForSession, the operation that WRITES the session, which genuinely
+// needs cookie set/remove access. There is no bearer token yet at that point:
+// the callback is what creates it.
+//
+// The other ten importers use createServiceClient(), which carries no session and
+// is correct. Do NOT import createClient anywhere else - every other cookie
+// client on this platform was READING a session that nothing writes, which is why
+// dozens of routes answered 401 to everyone, signed in or not.
 // lib/supabase/server.ts
 // javari-dashboard — Supabase server client
 // Platform standard: matches craudiovizai pattern exactly

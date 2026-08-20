@@ -1,27 +1,54 @@
+'use client'
 // app/credits/page.tsx
 // javari-dashboard — Credits overview page (Supabase)
 // Friday, March 13, 2026
 
-import { createServiceClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+// 2026-08-20: this was a SERVER component that called
+//   createServiceClient().auth.getUser()
+// with NO ARGUMENT. A service-role client has no session and no cookies, so that
+// returned null on EVERY request - the page then "redirected" to sign-in, and
+// redirect() in a page component renders a blank page rather than issuing a 307.
+// Nobody has ever seen their credit balance here.
+//
+// Data now comes from /api/me/credits, behind requireUser(), with identity taken
+// from the bearer token because sessions live in localStorage on this platform.
+import { useEffect, useState } from 'react'
 
-export default async function CreditsPage() {
-  const supabase = createServiceClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/signin')
+interface Wallet { balance: number; plan: string; lifetime_earned: number; next_refresh_at: string | null }
+interface Txn { id: string; type?: string; action?: string; amount: number; created_at: string }
 
-  const { data: wallet } = await supabase
-    .from('user_credits')
-    .select('balance, plan, lifetime_earned, next_refresh_at')
-    .eq('user_id', user.id)
-    .single()
+export default function CreditsPage() {
+  const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [txns, setTxns] = useState<Txn[]>([])
+  const [ready, setReady] = useState(false)
 
-  const { data: txns } = await supabase
-    .from('credit_transactions')
-    .select('id, type, action, amount, balance_after, description, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(20)
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const { data: { session } } = await createClient().auth.getSession()
+        if (!session) { if (live) setReady(true); return }
+        const res = await fetch('/api/me/credits', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: 'no-store',
+        })
+        if (!res.ok) { if (live) setReady(true); return }
+        const d = await res.json()
+        if (!live) return
+        setWallet(d.wallet as Wallet)
+        setTxns((d.transactions ?? []) as Txn[])
+        setReady(true)
+      } catch {
+        if (live) setReady(true)   // fail closed: shows zero, never someone else's
+      }
+    })()
+    return () => { live = false }
+  }, [])
+
+  if (!ready) {
+    return <div className="p-6"><div className="animate-pulse text-gray-500">Loading your credits…</div></div>
+  }
 
   return (
     <div className="p-6 space-y-6">

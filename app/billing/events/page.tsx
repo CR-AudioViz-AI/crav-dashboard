@@ -1,20 +1,62 @@
+'use client'
 // app/billing/events/page.tsx
 // javari-dashboard — Webhook events admin page (Supabase)
 // Friday, March 13, 2026
 
-import { createServiceClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-export default async function BillingEventsPage() {
-  const supabase = createServiceClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/signin')
+// 2026-08-20: same broken pattern - createServiceClient().auth.getUser() with no
+// argument, always null, then a redirect() that renders blank.
+//
+// NOTE WHAT THIS PAGE SHOWS: every webhook event on the platform, with no user
+// filter. It only ever checked "is someone signed in", so had the auth worked,
+// any signed-in customer would have seen the payment webhook log for every other
+// customer. Fixing the auth alone would have turned a blank page into a data
+// leak, so /api/admin/webhook-events requires an ADMIN role and returns 403
+// otherwise.
+interface WebhookEvent {
+  id: string; provider: string; event_type: string; event_id: string
+  processed: boolean; processed_at: string | null; error: string | null; created_at: string
+}
 
-  const { data: events } = await supabase
-    .from('webhook_events')
-    .select('id, provider, event_type, event_id, processed, processed_at, error, created_at')
-    .order('created_at', { ascending: false })
-    .limit(50)
+export default function BillingEventsPage() {
+  const [events, setEvents] = useState<WebhookEvent[]>([])
+  const [state, setState] = useState<'loading' | 'ready' | 'forbidden'>('loading')
+
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const { data: { session } } = await createClient().auth.getSession()
+        if (!session) { if (live) setState('forbidden'); return }
+        const res = await fetch('/api/admin/webhook-events', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: 'no-store',
+        })
+        if (!res.ok) { if (live) setState('forbidden'); return }
+        const d = await res.json()
+        if (!live) return
+        setEvents((d.events ?? []) as WebhookEvent[])
+        setState('ready')
+      } catch {
+        if (live) setState('forbidden')   // fail closed
+      }
+    })()
+    return () => { live = false }
+  }, [])
+
+  if (state === 'loading') {
+    return <div className="p-6"><div className="animate-pulse text-gray-500">Loading webhook events…</div></div>
+  }
+  if (state === 'forbidden') {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-2">Webhook Events</h1>
+        <p className="text-gray-500 text-sm">This page is restricted to administrators.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6">
