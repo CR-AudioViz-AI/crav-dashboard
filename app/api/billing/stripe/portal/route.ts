@@ -34,6 +34,15 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error('[billing/stripe/portal]', err)
     const msg = err instanceof Error ? err.message : 'Internal server error'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    // 2026-08-25: this returned 500 for EVERY error including an auth failure, so
+    // an unauthenticated caller got "500 Authentication required" - a server fault
+    // reported for a client mistake. Four sibling routes in this same repo already
+    // map the message correctly; these two were the outliers. A 500 tells a
+    // monitor the service is broken and tells the caller nothing actionable.
+    const status = msg === 'Authentication required' ? 401
+      : msg.includes('Permission') ? 403
+      : msg.includes('not found') || msg.includes('No such') ? 404
+      : 500
+    return NextResponse.json({ error: msg }, { status })
   }
 }
