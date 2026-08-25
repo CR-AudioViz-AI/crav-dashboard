@@ -36,7 +36,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         .maybeSingle(),
       supabase
         .from("credit_transactions")
-        .select("id, type, action, amount, balance_after, description, created_at")
+        // 2026-08-25: `action` is NOT a column on credit_transactions. Found by
+      // calling this endpoint with a real session during a DELIVERS audit - it
+      // returned HTTP 500 with "column credit_transactions.action does not exist"
+      // straight to the customer.
+      //
+      // The site returns 200 and the dashboard renders, so only a signed-in
+      // request surfaced it. Every customer opening their credit history saw this.
+      //
+      // Real columns: id, user_id, org_id, amount, type, direction, reason,
+      // ref_id, balance_after, created_at, app_id, description, transaction_type,
+      // credits_added, credits_used, source_app.
+      //
+      // `reason` carries what `action` was reaching for, and transaction_type is
+      // the richer classifier the rest of the platform uses.
+      .select("id, type, transaction_type, reason, amount, balance_after, description, created_at")
         .eq("user_id", auth.userId)
         .order("created_at", { ascending: false })
         .limit(20),
