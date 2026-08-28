@@ -7,6 +7,7 @@ import { NextResponse, type NextFetchEvent } from 'next/server'
 import { track } from "@/lib/analytics/track"
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { publishableKey, supabaseUrl } from "@craudioviz/platform-sdk";
 
 const ATTACK_PATTERNS = {
   sqlInjection: [/union.*select/i, /insert.*into/i, /drop.*table/i],
@@ -62,8 +63,8 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   }
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl(),
+    publishableKey(),
     {
       cookies: {
         get:    (n) => request.cookies.get(n)?.value,

@@ -20,6 +20,7 @@
 // CR AudioViz AI · EIN 39-3646201 · August 2026
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { secretKey, supabaseUrl } from "@craudioviz/platform-sdk";
 
 export type AuthResult =
   | { ok: true; userId: string; email: string | null }
@@ -44,8 +45,8 @@ export async function requireUser(req: Request): Promise<AuthResult> {
   const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : null;
   if (!token) return { ok: false, res: unauthorized("no bearer token") };
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = supabaseUrl();
+  const key = secretKey();
   if (!url || !key) {
     // Fail closed AND say so. A misconfigured deployment must not look like a
     // rejected sign-in, or nobody ever finds out it is misconfigured.
