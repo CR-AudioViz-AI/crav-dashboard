@@ -67,9 +67,13 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     publishableKey(),
     {
       cookies: {
-        get:    (n) => request.cookies.get(n)?.value,
-        set:    (n, v, o) => { response.cookies.set({ name: n, value: v, ...o }) },
-        remove: (n, o)    => { response.cookies.set({ name: n, value: '', ...o }) },
+        // 2026-09-01: annotated. These are the SESSION COOKIE handlers — the code
+        // that decides whether a request is authenticated — and every parameter was
+        // an implicit any. noImplicitAny rejected them, so middleware has never
+        // typechecked.
+        get:    (n: string) => request.cookies.get(n)?.value,
+        set:    (n: string, v: string, o: Record<string, unknown>) => { response.cookies.set({ name: n, value: v, ...o }) },
+        remove: (n: string, o: Record<string, unknown>)    => { response.cookies.set({ name: n, value: '', ...o }) },
       },
     }
   )
