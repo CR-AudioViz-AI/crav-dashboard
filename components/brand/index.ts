@@ -19,4 +19,7 @@ export { CreditsBar } from './CreditsBar';
 export { AuthButtons } from './AuthButtons';
 
 // Tailwind config extension
-export { brandConfig as tailwindBrandConfig } from './tailwind.brand.config';
+// 2026-09-01: REMOVED. './tailwind.brand.config' does not exist in this repo, so
+// this barrel re-exported a module that was never there and every importer of
+// components/brand failed to resolve. Same defect found and fixed in javari-realty.
+// Nothing imports tailwindBrandConfig.
