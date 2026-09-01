@@ -104,7 +104,7 @@ function AssetCard({
   return (
     <div className="bg-white rounded-lg shadow hover:shadow-md transition p-4">
       <div className="flex items-start gap-4">
-        <div className="flex-shrink-0">{getFileIcon(asset.type)}</div>
+        <div className="flex-shrink-0">{getFileIcon(asset.type ?? '')}</div>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium text-gray-900 truncate">
             {asset.name || "Unnamed Asset"}
