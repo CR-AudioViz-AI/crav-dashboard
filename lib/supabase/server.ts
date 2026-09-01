@@ -55,7 +55,7 @@ export function createServiceClient() {
     secretKey(),
     {
       cookies: {
-        get: (name) => cookieStore.get(name)?.value,
+        get: (name: string) => cookieStore.get(name)?.value,
         set: () => {},
         remove: () => {},
       },
